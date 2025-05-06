@@ -1,6 +1,6 @@
 const dbConnect = require("../utils/dbConnect");
 const Paper = require("../models/Paper");
-const { uploadToCloudinary } = require("../utils/cloudinaryUploader");
+const { uploadPDFToCloudinary } = require("../utils/cloudinaryUploader");
 const {
   extractFromPdf,
   generatePaperEmbeddings,
@@ -8,7 +8,7 @@ const {
 } = require("../utils/paperExtractor");
 
 /**
- * Check the uniqueness of a research paper against existing papers
+ * Check the uniqueness of a research paper against existing papers using Gemini
  * @param {Object} req - Express request object with uploaded PDF file
  * @param {Object} res - Express response object
  */
@@ -42,18 +42,33 @@ async function checkPaperUniqueness(req, res) {
       });
     }
 
-    // Step 2: Generate embeddings for the abstract and conclusion
-    const embeddings = await generatePaperEmbeddings(extractedData);
+    // Step 2: Generate paper data for Gemini analysis
+    const paperData = await generatePaperEmbeddings(extractedData);
 
-    // Step 3: Calculate similarity with existing papers
-    const similarityResults = await calculatePaperSimilarity(embeddings);
+    // Step 3: Calculate similarity with Gemini
+    const similarityResults = await calculatePaperSimilarity(paperData);
 
     // Step 4: Upload the PDF to Cloudinary
-    const cloudinaryResult = await uploadToCloudinary(
+    const cloudinaryResult = await uploadPDFToCloudinary(
       pdfBuffer,
-      "research_papers",
-      `paper_${Date.now()}`
+      title || extractedData.info?.Title || "untitled_paper"
     );
+
+    // --- Calculate Publication Year Safely ---
+    let finalPublicationYear = undefined; // Use undefined for optional fields
+    if (year) {
+      const parsedYear = parseInt(year);
+      if (!isNaN(parsedYear)) {
+        finalPublicationYear = parsedYear;
+      }
+    } else if (extractedData.info?.CreationDate) {
+      const date = new Date(extractedData.info.CreationDate);
+      // Check if the date is valid before getting the year
+      if (!isNaN(date.getTime())) {
+        finalPublicationYear = date.getFullYear();
+      }
+    }
+    // --- End Calculation ---
 
     // Step 5: Save the paper and analysis results to the database
     const paper = new Paper({
@@ -61,24 +76,24 @@ async function checkPaperUniqueness(req, res) {
       authors: authors ? authors.split(",").map((a) => a.trim()) : [],
       abstract: extractedData.abstract,
       conclusion: extractedData.conclusion,
-      publicationYear: year
-        ? parseInt(year)
-        : extractedData.info?.CreationDate
-        ? new Date(extractedData.info.CreationDate).getFullYear()
-        : null,
+      publicationYear: finalPublicationYear, // Assign the safely calculated year or undefined
       doi: doi,
       journal: journal,
-      embeddings: embeddings,
       uniquenessScore: similarityResults.uniquenessScore,
+      similarityExplanation: similarityResults.explanation,
       similarPapers: similarityResults.similarPapers.map((paper) => ({
-        paperId: paper.paperId, // In production this would refer to an actual DB id
+        paperId: paper.paperId,
         similarityScore: paper.similarity,
-        explanation: `Similar to "${paper.title}"`,
+        explanation: paper.explanation,
+        title: paper.title,
+        authors: paper.authors,
+        year: paper.year,
       })),
       originalPdf: {
-        cloudinaryUrl: cloudinaryResult.secure_url,
+        cloudinaryUrl: cloudinaryResult.url,
         fileSize: req.file.size,
         fileType: req.file.mimetype,
+        publicId: cloudinaryResult.publicId,
       },
       isAnalyzed: true,
     });
@@ -100,6 +115,7 @@ async function checkPaperUniqueness(req, res) {
         pageCount: extractedData.pageCount,
       },
       uniquenessScore: similarityResults.uniquenessScore,
+      explanation: similarityResults.explanation,
       similarPapers: similarityResults.similarPapers,
       message: "Paper uniqueness analysis completed successfully",
     });
@@ -203,11 +219,15 @@ async function getPaper(req, res) {
         authors: paper.authors,
         abstract: paper.abstract,
         conclusion: paper.conclusion,
-        publicationYear: paper.publicationYear,
-        doi: paper.doi,
-        journal: paper.journal,
         uniquenessScore: paper.uniquenessScore,
-        similarPapers: paper.similarPapers,
+        similarityExplanation: paper.similarityExplanation,
+        similarPapers: paper.similarPapers.map((sp) => ({
+          title: sp.title,
+          authors: sp.authors,
+          year: sp.year,
+          similarityScore: sp.similarityScore,
+          explanation: sp.explanation,
+        })),
         pdfUrl: paper.originalPdf?.cloudinaryUrl,
         createdAt: paper.createdAt,
       },

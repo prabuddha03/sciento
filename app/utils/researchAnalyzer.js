@@ -5,14 +5,16 @@ require("dotenv").config();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 /**
- * Analyzes research paper content
+ * Analyzes research paper content using Gemini
  * @param {string} pdfText - The extracted text from the PDF
- * @param {string} synopsis - The level of synopsis detail (brief, moderate, detailed)
+ * @param {string} synopsisType - The level of synopsis detail (brief, moderate, detailed)
  * @returns {Promise<Object>} - The analysis results
  */
 async function analyzeResearch(pdfText, synopsisType = "moderate") {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+    });
 
     // Validate synopsis type
     if (!["brief", "moderate", "detailed"].includes(synopsisType)) {
@@ -25,13 +27,17 @@ async function analyzeResearch(pdfText, synopsisType = "moderate") {
     // Generate content
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const text = response.text();
+    let text = response.text();
+
+    // Clean the response text: remove Markdown fences if present
+    text = text.replace(/^```json\s*/, "").replace(/\s*```$/, "");
 
     // Parse the JSON response
     try {
       return JSON.parse(text);
     } catch (parseError) {
       console.error("Error parsing Gemini response as JSON:", parseError);
+      console.error("Raw text received:", text); // Log the cleaned text for debugging
 
       // Attempt to extract structured data from text response
       return extractStructuredData(text);

@@ -13,10 +13,13 @@ const { uploadPDF } = require("./app/middleware/upload");
 const errorHandler = require("./app/middleware/errorHandler");
 
 // Import controllers
-const { generatePaper } = require("./app/controllers/paperController");
 const { analyzePaper } = require("./app/controllers/analyzeController");
 const { detectAI } = require("./app/controllers/aiDetectionController");
-const { createRoom, getRoom } = require("./app/controllers/roomController");
+const {
+  createRoom,
+  getRoom,
+  getRooms,
+} = require("./app/controllers/roomController");
 const {
   submitIdea,
   getRoomIdeas,
@@ -24,9 +27,14 @@ const {
 } = require("./app/controllers/ideaController");
 const {
   checkPaperUniqueness,
-  getPapers,
   getPaper,
 } = require("./app/controllers/paperUniquenessController");
+const {
+  structurePaper,
+} = require("./app/controllers/paperStructureController");
+const {
+  checkPaperStructure,
+} = require("./app/controllers/structureCheckController");
 
 // Initialize Express app
 const app = express();
@@ -40,24 +48,29 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Paper generation routes
-app.post("/generate-paper", uploadPDF, generatePaper);
+// Paper analysis routes
 app.post("/analyze-paper", uploadPDF, analyzePaper);
 app.post("/detect-ai", uploadPDF, detectAI);
 
 // Room routes
 app.post("/rooms", createRoom);
 app.get("/rooms/:identifier", getRoom);
+app.get("/rooms", getRooms);
 
 // Idea routes
 app.post("/ideas", submitIdea);
 app.get("/rooms/:roomId/ideas", getRoomIdeas);
 app.get("/ideas/:ideaId/similar", getSimilarIdeas);
 
-// Paper uniqueness routes
+// Paper uniqueness routes - simplified to use Gemini
 app.post("/papers/check-uniqueness", uploadPDF, checkPaperUniqueness);
-app.get("/papers", getPapers);
 app.get("/papers/:paperId", getPaper);
+
+// Paper structuring route (File upload)
+app.post("/papers/structure", uploadPDF, structurePaper);
+
+// Paper structure check route
+app.post("/papers/check-structure", uploadPDF, checkPaperStructure);
 
 // Welcome route
 app.get("/", (req, res) => {
@@ -98,7 +111,7 @@ app.get("/", (req, res) => {
       {
         path: "/ideas",
         method: "POST",
-        description: "Submit a new idea and check its uniqueness",
+        description: "Submit a new idea and check its uniqueness using BERT",
         body: "title, description, domain, problemStatement, proposedSolution, authorName, roomId fields",
       },
       {
@@ -117,17 +130,6 @@ app.get("/", (req, res) => {
         description:
           "Check uniqueness of a scientific paper against 800K papers",
         body: "PDF file upload with optional title, authors, doi, journal, year metadata",
-      },
-      {
-        path: "/papers",
-        method: "GET",
-        description: "Get a list of papers",
-        queryParams: {
-          limit: "Number of papers to return (default: 10)",
-          skip: "Number of papers to skip (default: 0)",
-          sortBy: "Field to sort by (default: createdAt)",
-          sortDir: "Sort direction: asc or desc (default: desc)",
-        },
       },
       {
         path: "/papers/:paperId",

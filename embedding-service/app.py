@@ -8,7 +8,7 @@ import json
 import re
 from io import BytesIO
 
-# Load environment variables
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -48,10 +48,9 @@ def generate_embeddings():
         if not data:
             return jsonify({"error": "No data provided"}), 400
         
-        # Fields to generate embeddings for
+
         fields = ['problemStatement', 'proposedSolution', 'description', 'domain']
         
-        # Validate required fields
         missing_fields = [field for field in fields if field not in data or not data[field]]
         if missing_fields:
             return jsonify({
@@ -59,12 +58,10 @@ def generate_embeddings():
                 "missing_fields": missing_fields
             }), 400
         
-        # Generate embeddings for each field
+
         embeddings = {}
         for field in fields:
-            # Generate embedding for the field
             field_embedding = model.encode(data[field])
-            # Convert to Python list for JSON serialization
             embeddings[field] = field_embedding.tolist()
         
         return jsonify({"embeddings": embeddings})
@@ -97,22 +94,17 @@ def generate_paper_embeddings():
         if not data:
             return jsonify({"error": "No data provided"}), 400
         
-        # Fields to generate embeddings for
         fields = ['abstract', 'conclusion']
         
-        # Validate at least one field is present
         if not any(field in data and data[field] for field in fields):
             return jsonify({
                 "error": "At least one of abstract or conclusion must be provided",
             }), 400
         
-        # Generate embeddings for each provided field
         embeddings = {}
         for field in fields:
             if field in data and data[field]:
-                # Generate embedding for the field
                 field_embedding = model.encode(data[field])
-                # Convert to Python list for JSON serialization
                 embeddings[field] = field_embedding.tolist()
         
         return jsonify({"embeddings": embeddings})

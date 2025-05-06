@@ -40,20 +40,31 @@ const PaperSchema = new mongoose.Schema({
     type: [String],
     default: [],
   },
-  // Store BERT embeddings for each field
-  embeddings: {
-    abstract: [Number],
-    conclusion: [Number],
-  },
+  // No longer using embeddings, but keeping field for backward compatibility
+  // with a different structure
   uniquenessScore: {
     type: Number,
     default: 0,
   },
+  similarityExplanation: {
+    type: String,
+    default: "",
+  },
   similarPapers: [
     {
       paperId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Paper",
+        type: String,
+      },
+      title: {
+        type: String,
+        default: "Unknown Title",
+      },
+      authors: {
+        type: String,
+        default: "Unknown Authors",
+      },
+      year: {
+        type: String,
       },
       similarityScore: {
         type: Number,

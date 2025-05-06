@@ -31,7 +31,7 @@ async function detectAIContent(text) {
     const limitedText = limitTextLength(text);
 
     // Initialize Gemini Pro model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     // Construct prompt for AI detection
     const prompt = `You are an expert at detecting AI-generated writing. Given the following content, estimate:
@@ -52,40 +52,37 @@ ${limitedText}`;
     // Generate content
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const responseText = response.text();
+    let responseText = response.text();
 
-    // Try to parse JSON from response
+    // Clean the response text: remove BOM and Markdown fences
+    responseText = responseText
+      .replace(/^\uFEFF/, "") // Remove potential BOM
+      .replace(/^```json\s*/, "")
+      .replace(/\s*```$/, "");
+
+    // Try to parse JSON from the cleaned response
     try {
-      // Extract JSON if it's embedded in text
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const jsonStr = jsonMatch[0];
-        const parsedResponse = JSON.parse(jsonStr);
+      const parsedResponse = JSON.parse(responseText);
 
-        // Ensure the response has the expected structure
-        return {
-          aiScore: parsedResponse.aiScore || 0,
-          confidence: parsedResponse.confidence || "Low",
-          explanation:
-            parsedResponse.explanation || "Unable to analyze the text.",
-        };
-      }
-
-      throw new Error("No valid JSON found in the response");
-    } catch (parseError) {
-      console.error("Error parsing Gemini response:", parseError);
-
-      // If parsing fails, try to extract data using regex
-      const scoreMatch = responseText.match(/(\d+)%|(\d+)\s*percent/i);
-      const confidenceMatch = responseText.match(
-        /confidence[:\s]*(High|Medium|Low)/i
-      );
-
+      // Ensure the response has the expected structure
       return {
-        aiScore: scoreMatch ? parseInt(scoreMatch[1] || scoreMatch[2], 10) : 50,
-        confidence: confidenceMatch ? confidenceMatch[1] : "Medium",
+        aiScore: parsedResponse.aiScore || 0,
+        confidence: parsedResponse.confidence || "Low",
         explanation:
-          "The analysis couldn't be structured properly, but the content was evaluated.",
+          parsedResponse.explanation || "Unable to analyze the text.",
+      };
+    } catch (parseError) {
+      console.error(
+        "Error parsing cleaned Gemini response as JSON:",
+        parseError
+      );
+      console.error("Cleaned text received:", responseText); // Log the cleaned text for debugging
+
+      // Fallback if parsing still fails (maybe remove or refine this later)
+      return {
+        aiScore: 50, // Default score
+        confidence: "Medium",
+        explanation: "Could not properly parse the AI detection analysis.",
       };
     }
   } catch (error) {

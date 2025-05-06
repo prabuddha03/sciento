@@ -1,6 +1,9 @@
 const pdfParse = require("pdf-parse");
-const axios = require("axios");
-const { findSimilarPapers } = require("./vectorDatabase");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+require("dotenv").config();
+
+// Initialize the Gemini API client
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 /**
  * Extract the abstract and conclusion from a scientific paper PDF
@@ -120,67 +123,119 @@ function extractConclusion(text) {
 }
 
 /**
- * Generate embeddings for abstract and conclusion using the embedding service
+ * Generate embeddings for abstract and conclusion using Gemini
+ * Note: This function maintains the same interface as before, but now uses Gemini
  * @param {Object} data - Object containing abstract and conclusion
- * @returns {Promise<Object>} - Embeddings for the abstract and conclusion
+ * @returns {Promise<Object>} - Embeddings for the abstract and conclusion (actually just processed text)
  */
 async function generatePaperEmbeddings(data) {
   try {
-    const embeddingServiceUrl =
-      process.env.EMBEDDING_SERVICE_URL?.replace(
-        "/embeddings",
-        "/paper/embeddings"
-      ) || "http://localhost:5000/api/paper/embeddings";
+    // Only include fields that are not empty and return a simplified structure
+    // We're not actually computing embeddings, just storing the text for Gemini to use later
+    const embeddings = {};
+    if (data.abstract) embeddings.abstract = data.abstract;
+    if (data.conclusion) embeddings.conclusion = data.conclusion;
 
-    // Only include fields that are not empty
-    const requestData = {};
-    if (data.abstract) requestData.abstract = data.abstract;
-    if (data.conclusion) requestData.conclusion = data.conclusion;
-
-    // Return empty object if no data to embed
-    if (Object.keys(requestData).length === 0) {
-      return {};
-    }
-
-    const response = await axios.post(embeddingServiceUrl, requestData);
-    return response.data.embeddings;
+    return embeddings;
   } catch (error) {
-    console.error("Error generating paper embeddings:", error);
-    throw new Error("Failed to generate embeddings for paper");
+    console.error("Error generating paper representations:", error);
+    throw new Error("Failed to generate representations for paper");
   }
 }
 
 /**
- * Calculate paper similarity using the vector database
- * @param {Object} embeddings - Object containing abstract and conclusion embeddings
+ * Calculate paper similarity using Gemini
+ * @param {Object} paperData - Object containing abstract and conclusion text
  * @param {number} topK - Number of similar papers to return
  * @returns {Promise<Object>} - Similarity results with uniqueness score and similar papers
  */
-async function calculatePaperSimilarity(embeddings, topK = 5) {
+async function calculatePaperSimilarity(paperData, topK = 5) {
   try {
-    // Use vector database to find similar papers
-    return await findSimilarPapers(embeddings, topK);
-  } catch (error) {
-    console.error("Error calculating paper similarity:", error);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-    // Fallback to embedding service if vector DB fails
-    try {
-      const similarityServiceUrl =
-        process.env.EMBEDDING_SERVICE_URL?.replace(
-          "/embeddings",
-          "/paper/similarity"
-        ) || "http://localhost:5000/api/paper/similarity";
+    // Extract abstract and conclusion
+    const abstract = paperData.abstract || "";
+    const conclusion = paperData.conclusion || "";
 
-      const response = await axios.post(similarityServiceUrl, {
-        embeddings,
-        top_k: topK,
-      });
-
-      return response.data;
-    } catch (fallbackError) {
-      console.error("Error in fallback similarity calculation:", fallbackError);
-      throw new Error("Failed to calculate paper similarity");
+    // If there's not enough content to analyze, return a default response
+    if (abstract.length < 50 && conclusion.length < 50) {
+      return {
+        uniquenessScore: 100,
+        similarPapers: [],
+        explanation: "Not enough content to analyze.",
+      };
     }
+
+    // Construct prompt for Gemini
+    const prompt = `
+Analyze the following scientific paper excerpt and determine how unique it is.
+If you were to search academic databases, estimate how many similar papers exist and provide examples.
+
+ABSTRACT:
+${abstract}
+
+CONCLUSION:
+${conclusion}
+
+Generate a JSON response with the following format:
+{
+  "uniquenessScore": 1-100 (higher means more unique),
+  "explanation": "Explanation of the uniqueness analysis",
+  "similarPapers": [
+    {
+      "title": "Title of a similar paper",
+      "authors": "Authors of the paper",
+      "year": "Estimated publication year",
+      "similarity": 1-100 (higher means more similar),
+      "description": "Brief description of how this paper is similar"
+    }
+  ]
+}
+
+Limit the similarPapers array to ${topK} items and ensure your response is valid JSON.
+`;
+
+    // Generate content with Gemini
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let text = response.text();
+
+    // Clean the response text: remove BOM and Markdown fences
+    text = text
+      .replace(/^\uFEFF/, "") // Remove potential BOM
+      .replace(/^```json\s*/, "")
+      .replace(/\s*```$/, "");
+
+    // Parse JSON response
+    try {
+      const data = JSON.parse(text);
+
+      // Format the response to match the expected output format
+      return {
+        uniquenessScore: data.uniquenessScore || 50,
+        explanation: data.explanation || "",
+        similarPapers: (data.similarPapers || []).map((paper, index) => ({
+          paperId: `sim_${index + 1}`,
+          title: paper.title || "Unknown Title",
+          authors: paper.authors || "Unknown Authors",
+          year: paper.year || "Unknown Year",
+          similarity: paper.similarity || 0,
+          explanation: paper.description || "",
+        })),
+      };
+    } catch (parseError) {
+      console.error("Error parsing Gemini response as JSON:", parseError);
+
+      // Return a default response if parsing fails
+      return {
+        uniquenessScore: 50,
+        explanation: "Unable to determine uniqueness accurately.",
+        similarPapers: [],
+      };
+    }
+  } catch (error) {
+    console.error("Error calculating paper similarity with Gemini:", error);
+    throw new Error("Failed to analyze paper similarity");
   }
 }
 

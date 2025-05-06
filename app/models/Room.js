@@ -25,8 +25,17 @@ const RoomSchema = new mongoose.Schema({
   },
   accessCode: {
     type: String,
-    required: true,
+    //required: true,
     unique: true,
+  },
+  tags: {
+    type: [String],
+    default: [],
+    index: true,
+  },
+  isPrivate: {
+    type: Boolean,
+    default: false,
   },
   createdAt: {
     type: Date,

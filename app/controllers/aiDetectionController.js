@@ -43,8 +43,33 @@ async function detectAI(req, res) {
     // Detect AI content
     const analysis = await detectAIContent(textToAnalyze);
 
-    // Return the analysis results
-    res.status(200).json(analysis);
+    // --- Transform the response structure ---
+    const isAIGenerated = analysis.aiScore >= 50;
+    let confidenceScore = 0.5; // Default to medium
+    switch (analysis.confidence.toLowerCase()) {
+      case "high":
+        confidenceScore = 0.9;
+        break;
+      case "medium":
+        confidenceScore = 0.6;
+        break;
+      case "low":
+        confidenceScore = 0.3;
+        break;
+    }
+
+    const formattedResponse = {
+      success: true,
+      result: {
+        isAIGenerated: isAIGenerated,
+        confidence: confidenceScore, // Send numeric confidence
+        explanation: analysis.explanation,
+      },
+    };
+    // --- End transformation ---
+
+    // Return the formatted analysis results
+    res.status(200).json(formattedResponse);
   } catch (error) {
     console.error("Error in detectAI:", error);
     res.status(500).json({
