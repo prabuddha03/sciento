@@ -1,5 +1,6 @@
 const { extractTextFromPDF } = require("../utils/pdfParser");
 const { structurePaperWithAI } = require("../utils/paperFormatter"); // We'll create this next
+const HTMLToPDF = require("html-pdf-node"); // Added for PDF generation
 
 /**
  * Structures a research paper from an uploaded PDF according to a specified format.
@@ -48,20 +49,39 @@ async function structurePaper(req, res) {
     }
 
     // Call the AI structuring utility
+    // IMPORTANT: structurePaperWithAI in app/utils/paperFormatter.js
+    // needs to be updated to return an object where 'formattedPaper' is an HTML string.
+    // The AI prompt should strictly instruct the model to reformat the content into HTML
+    // without altering the text itself, based on the target 'format'.
     const structuringResult = await structurePaperWithAI(
       textToAnalyze,
       format,
       metadata
     );
 
-    // Send successful response
-    res.status(200).json({
-      success: true,
-      formattedPaper: structuringResult.formattedPaper,
-      detectedFormat: structuringResult.detectedFormat, // Include the detected original format
-      format: format, // Echo back the requested format
-      message: "Paper structured successfully.",
-    });
+    // Assuming structuringResult.formattedPaper is now an HTML string
+    if (
+      !structuringResult.formattedPaper ||
+      typeof structuringResult.formattedPaper !== "string"
+    ) {
+      return res.status(500).json({
+        success: false,
+        error: "AI structuring did not return valid HTML content.",
+      });
+    }
+
+    const pdfOptions = { format: "A4" }; // Or other appropriate PDF options
+    const file = { content: structuringResult.formattedPaper };
+
+    const pdfBuffer = await HTMLToPDF.generatePdf(file, pdfOptions);
+
+    // Send successful PDF response
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="formatted_paper_${Date.now()}.pdf"`
+    );
+    res.send(pdfBuffer);
   } catch (error) {
     console.error("Error in structurePaper controller:", error);
     res.status(500).json({

@@ -24,9 +24,17 @@ export interface PaperAnalysisResponse {
 export interface AIDetectionResponse {
   success: boolean;
   result: {
-    isAIGenerated: boolean;
-    confidence: number;
-    explanation: string;
+    aiScore: number; // Likelihood of AI generation (0-100)
+    aiConfidence: string; // Confidence in aiScore (e.g., "High", "Medium", "Low")
+    aiExplanation: string; // Explanation for AI generation assessment
+    humanizationScore: number; // Likelihood of AI text being humanized (0-100)
+    humanizationConfidence: string; // Confidence in humanizationScore
+    humanizationExplanation: string; // Explanation for humanization assessment
+    plagiarismRisk: string; // Assessed plagiarism risk (e.g., "High", "Medium", "Low", "None")
+    plagiarismExplanation: string; // Explanation for plagiarism risk
+    readabilityLevel: string; // Estimated readability (e.g., "Easy", "Moderate")
+    sentiment: string; // Overall sentiment (e.g., "Positive", "Neutral")
+    overallAssessment: string; // Summary statement
   };
 }
 

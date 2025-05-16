@@ -44,26 +44,38 @@ async function detectAI(req, res) {
     const analysis = await detectAIContent(textToAnalyze);
 
     // --- Transform the response structure ---
-    const isAIGenerated = analysis.aiScore >= 50;
-    let confidenceScore = 0.5; // Default to medium
-    switch (analysis.confidence.toLowerCase()) {
-      case "high":
-        confidenceScore = 0.9;
-        break;
-      case "medium":
-        confidenceScore = 0.6;
-        break;
-      case "low":
-        confidenceScore = 0.3;
-        break;
-    }
+    // The new analysis object from aiDetector.js is more comprehensive.
+    // We will pass most of it directly to the client.
+
+    // Convert string confidence levels to a numeric representation if desired by frontend,
+    // or pass them as strings. For now, let's pass them as strings as returned by the detector.
+    // Example: if numeric is needed:
+    // const mapConfidenceToNumeric = (confidence) => {
+    //   switch (String(confidence).toLowerCase()) {
+    //     case "high": return 0.9;
+    //     case "medium": return 0.6;
+    //     case "low": return 0.3;
+    //     default: return 0.5; // Or handle "Unknown"
+    //   }
+    // };
 
     const formattedResponse = {
       success: true,
       result: {
-        isAIGenerated: isAIGenerated,
-        confidence: confidenceScore, // Send numeric confidence
-        explanation: analysis.explanation,
+        aiScore: parseFloat(analysis.aiScore) || 0, // Ensure it's a number
+        aiConfidence: analysis.aiConfidence, // e.g., "High", "Medium", "Low"
+        aiExplanation: analysis.aiExplanation,
+        humanizationScore: parseFloat(analysis.humanizationScore) || 0, // Ensure it's a number
+        humanizationConfidence: analysis.humanizationConfidence,
+        humanizationExplanation: analysis.humanizationExplanation,
+        plagiarismRisk: analysis.plagiarismRisk, // e.g., "Low", "Medium", "High"
+        plagiarismExplanation: analysis.plagiarismExplanation,
+        readabilityLevel: analysis.readabilityLevel, // e.g., "Moderate"
+        sentiment: analysis.sentiment, // e.g., "Neutral"
+        overallAssessment: analysis.overallAssessment,
+        // Deprecated fields (can be removed if frontend is updated):
+        // isAIGenerated: (parseFloat(analysis.aiScore) || 0) >= 50,
+        // confidence: mapConfidenceToNumeric(analysis.aiConfidence),
       },
     };
     // --- End transformation ---
