@@ -24,7 +24,7 @@ const HomePage = () => {
       path: '/ai-detection',
     },
     {
-      name: 'Paper Uniqueness',
+      name: 'Uniqueness & Related',
       description: 'Evaluate the uniqueness of a research paper against existing literature.',
       icon: DocumentDuplicateIcon,
       path: '/paper-uniqueness',
@@ -41,12 +41,7 @@ const HomePage = () => {
       icon: ClipboardDocumentCheckIcon,
       path: '/paper-structure-check',
     },
-    {
-      name: 'Idea Rooms',
-      description: 'Create rooms for organizing and judging uniqueness of research ideas in a pool.',
-      icon: UserGroupIcon,
-      path: '/rooms',
-    },
+    
   ];
 
   return (

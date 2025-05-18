@@ -67,7 +67,7 @@ const PaperUniquenessPage = () => {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Paper Uniqueness Checker</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Uniqueness & Find Related Papers</h1>
         <p className="mt-2 text-gray-600">
           Check how unique your research paper is compared to existing literature.
         </p>

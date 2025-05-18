@@ -9,11 +9,10 @@ const Navbar = () => {
   const navigation = [
     { name: 'Home', path: '/' },
     { name: 'Paper Analysis', path: '/paper-analysis' },
-    { name: 'AI Detection', path: '/ai-detection' },
-    { name: 'Paper Uniqueness', path: '/paper-uniqueness' },
+    { name: 'AI & Plagiarism', path: '/ai-detection' },
+    { name: 'Unique & Related', path: '/paper-uniqueness' },
     { name: 'Paper Structuring', path: '/paper-structuring' },
     { name: 'Structure Check', path: '/paper-structure-check' },
-    { name: 'Idea Rooms', path: '/rooms' },
   ];
 
   const isActive = (path: string) => {
@@ -27,7 +26,7 @@ const Navbar = () => {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <Link to="/" className="text-xl font-bold text-blue-600">Sciento</Link>
+              <Link to="/" className="text-xl font-bold text-blue-600">SafeCite</Link>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               {navigation.map((item) => (

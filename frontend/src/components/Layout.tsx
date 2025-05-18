@@ -15,7 +15,7 @@ const Layout = ({ children }: LayoutProps) => {
       <footer className="bg-white py-6 border-t border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <p className="text-center text-gray-500 text-sm">
-            &copy; {new Date().getFullYear()} Sciento - Research Paper and Idea Management
+            &copy; {new Date().getFullYear()} SafeCite - Research Paper and Idea Management
           </p>
         </div>
       </footer>
